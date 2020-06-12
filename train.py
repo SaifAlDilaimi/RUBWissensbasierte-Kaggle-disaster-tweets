@@ -113,29 +113,23 @@ def prepare_dataset():
     
     return df_train, df_test
 
-def text_embeddings(df_train, df_test):
-    glove_embeddings, fasttext_embeddings = load_pretrained_embeddings()
+def build_model(df_train):
+    
+    tokenizer = Tokenizer()   #nb_words=MAX_NB_WORDS
+    tokenizer.fit_on_texts(texts)
+    sequences = tokenizer.texts_to_sequences(texts)
 
-    train_glove_oov, train_glove_vocab_coverage, train_glove_text_coverage = check_embeddings_coverage(df_train['text'], glove_embeddings)
-    test_glove_oov, test_glove_vocab_coverage, test_glove_text_coverage = check_embeddings_coverage(df_test['text'], glove_embeddings)
-    print('GloVe Embeddings cover {:.2%} of vocabulary and {:.2%} of text in Training Set'.format(train_glove_vocab_coverage, train_glove_text_coverage))
-    print('GloVe Embeddings cover {:.2%} of vocabulary and {:.2%} of text in Test Set'.format(test_glove_vocab_coverage, test_glove_text_coverage))
+    word_index = tokenizer.word_index
+    print('Found %s unique tokens.' % len(word_index))
 
-    train_fasttext_oov, train_fasttext_vocab_coverage, train_fasttext_text_coverage = check_embeddings_coverage(df_train['text'], fasttext_embeddings)
-    test_fasttext_oov, test_fasttext_vocab_coverage, test_fasttext_text_coverage = check_embeddings_coverage(df_test['text'], fasttext_embeddings)
-    print('FastText Embeddings cover {:.2%} of vocabulary and {:.2%} of text in Training Set'.format(train_fasttext_vocab_coverage, train_fasttext_text_coverage))
-    print('FastText Embeddings cover {:.2%} of vocabulary and {:.2%} of text in Test Set'.format(test_fasttext_vocab_coverage, test_fasttext_text_coverage))
+    data = pad_sequences(sequences, maxlen=MAX_SEQUENCE_LENGTH)
+    labels = train['target1']
+    print('Shape of data tensor:', data.shape)
+    print('Shape of label tensor:', labels.shape)
 
-    del glove_embeddings, fasttext_embeddings, train_glove_oov, test_glove_oov, train_fasttext_oov, test_fasttext_oov
-    gc.collect()
-
-## **4. Embeddings and Text Cleaning**
-def load_pretrained_embeddings():
-    glove_embeddings = np.load('../input/glove.840B.300d.pkl', allow_pickle=True)
-    fasttext_embeddings = np.load('../input/crawl-300d-2M.pkl', allow_pickle=True)
-    return glove_embeddings, fasttext_embeddings
-
-def train_model(df_train):
+    X_train = data[:len(train)]
+    y_train = labels
+    X_test = data[len(train):]
     clf = DisasterDetector(max_seq_length=128, lr=0.0001, epochs=10, batch_size=32)
 
     clf.train(df_train)
