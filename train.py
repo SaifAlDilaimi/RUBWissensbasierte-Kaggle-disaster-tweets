@@ -1,4 +1,5 @@
 import gc
+import os
 import re
 import string
 import operator
@@ -12,7 +13,7 @@ pd.set_option('display.width', 1000)
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-#from wordcloud import STOPWORDS
+from wordcloud import STOPWORDS
 from preprocessing import clean
 from collections import defaultdict
 from nn import DisasterDetector
@@ -59,8 +60,8 @@ def prepare_dataset():
     df_test['unique_word_count'] = df_test['text'].apply(lambda x: len(set(str(x).split())))
 
     # stop_word_count
-    #df_train['stop_word_count'] = df_train['text'].apply(lambda x: len([w for w in str(x).lower().split() if w in STOPWORDS]))
-    #df_test['stop_word_count'] = df_test['text'].apply(lambda x: len([w for w in str(x).lower().split() if w in STOPWORDS]))
+    df_train['stop_word_count'] = df_train['text'].apply(lambda x: len([w for w in str(x).lower().split() if w in STOPWORDS]))
+    df_test['stop_word_count'] = df_test['text'].apply(lambda x: len([w for w in str(x).lower().split() if w in STOPWORDS]))
 
     # url_count
     df_train['url_count'] = df_train['text'].apply(lambda x: len([w for w in str(x).lower().split() if 'http' in w or 'https' in w]))
