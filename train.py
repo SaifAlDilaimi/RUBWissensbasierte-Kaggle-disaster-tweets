@@ -87,8 +87,11 @@ def prepare_dataset():
     df_train['mention_count'] = df_train['text'].apply(lambda x: len([c for c in str(x) if c == '@']))
     df_test['mention_count'] = df_test['text'].apply(lambda x: len([c for c in str(x) if c == '@']))
 
-    df_train['text_cleaned'] = df_train['text'].apply(lambda s : clean(s))
-    df_test['text_cleaned'] = df_test['text'].apply(lambda s : clean(s))
+    #df_train['text_cleaned'] = df_train['text'].apply(lambda s : clean(s))
+    #df_test['text_cleaned'] = df_test['text'].apply(lambda s : clean(s))
+
+    df_train['text_cleaned'] = df_train['text']
+    df_test['text_cleaned'] = df_test['text']
 
     # **4.2 Text Cleaning**
     df_train['target_relabeled'] = df_train['target'].copy() 
@@ -211,8 +214,6 @@ def main():
     #text_embeddings(df_train, df_test)
     
     train_model(df_train)
-
-
 
 if __name__ == '__main__':
     main()

@@ -10,7 +10,7 @@ from sklearn.model_selection import StratifiedKFold, StratifiedShuffleSplit
 from sklearn.metrics import precision_score, recall_score, f1_score
 from tensorflow import keras
 from tensorflow.keras.optimizers import SGD, Adam
-from tensorflow.keras.layers import Dense, Input, Dropout, GlobalAveragePooling1D
+from tensorflow.keras.layers import Dense, Input, Dropout, GlobalAveragePooling1D, LSTM, Embedding
 from tensorflow.keras.models import Model, Sequential
 from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping, Callback
 
@@ -101,11 +101,11 @@ class DisasterDetector:
         input_mask = Input(shape=(self.max_seq_length,), dtype=tf.int32, name='input_mask')
         segment_ids = Input(shape=(self.max_seq_length,), dtype=tf.int32, name='segment_ids')    
         
-        pooled_output, sequence_output = self.bert_layer([input_word_ids, input_mask, segment_ids])   
-        clf_output = sequence_output[:, 0, :]
-        out = Dense(1, activation='sigmoid')(clf_output)
+        embed = Embedding(input_dim=5000, output_dim=16, mask_zero=True)(input_word_ids)
+        lstm = LSTM(5)(embed)
+        out = Dense(1, activation='sigmoid')(lstm)
         
-        model = Model(inputs=[input_word_ids, input_mask, segment_ids], outputs=out)
+        model = Model(inputs=[input_word_ids], outputs=out)
         optimizer = SGD(learning_rate=self.lr, momentum=0.8)
         model.compile(loss='binary_crossentropy', optimizer=optimizer, metrics=['accuracy'])
         
