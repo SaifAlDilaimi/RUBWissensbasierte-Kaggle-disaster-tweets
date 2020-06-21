@@ -95,7 +95,6 @@ def get_model(embedding_layer):
 if __name__ == "__main__":
     df_train, df_test = load_dataset()
 
-    # Clean everything included in p.set_options
     df_train['text'] = df_train.apply(lambda x: tweet_tokenizer.tokenize(x.text), axis = 1)
     df_test['text'] = df_test.apply(lambda x: tweet_tokenizer.tokenize(x.text), axis = 1)
 
