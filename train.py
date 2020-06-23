@@ -93,8 +93,8 @@ def plot_distributions(df_train, df_test):
 
         extent_ax0 = axes[i][0].get_window_extent().transformed(fig.dpi_scale_trans.inverted())
         extent_ax1 = axes[i][1].get_window_extent().transformed(fig.dpi_scale_trans.inverted())
-        fig.savefig(f'{feature} Target Distribution in Training Set.png', bbox_inches=extent_ax0.expanded(1.1, 1.2))
-        fig.savefig(f'{feature} TrainingTest Set Distribution.png', bbox_inches=extent_ax1.expanded(1.1, 1.2))
+        fig.savefig(f'plots/{feature} Target Distribution in Training Set.png', bbox_inches=extent_ax0.expanded(1.1, 1.2))
+        fig.savefig(f'plots/{feature} TrainingTest Set Distribution.png', bbox_inches=extent_ax1.expanded(1.1, 1.2))
 
     #plt.show()
 
