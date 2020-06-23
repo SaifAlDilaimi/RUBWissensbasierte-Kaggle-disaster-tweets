@@ -5,13 +5,20 @@ pd.set_option('display.max_columns', 500)
 pd.set_option('display.width', 1000)
 import numpy as np
 import string
-from sklearn.model_selection import train_test_split
+import os
 import tensorflow as tf
+
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+from wordcloud import STOPWORDS
+from sklearn.model_selection import train_test_split
 from tensorflow.keras.layers.experimental.preprocessing import TextVectorization
 from tensorflow import keras
 from tensorflow.keras.layers import Input, Dense, LSTM, Bidirectional, Embedding, Dropout
+from tensorflow.keras.callbacks import ModelCheckpoint
 
-# To run this you need to download the pretrained embeddings: http://nlp.stanford.edu/data/glove.twitter.27B.zip
+nb_epochs = 30
 
 def load_dataset():
     df_train = pd.read_csv('train.csv', dtype={'id': np.int16, 'target': np.int8})
@@ -24,6 +31,72 @@ def load_dataset():
 
     return df_train, df_test
 
+def prepare_data_for_diagrams(df_train, df_test):
+    # word_count
+    df_train['word_count'] = df_train['text'].apply(lambda x: len(str(x).split()))
+    df_test['word_count'] = df_test['text'].apply(lambda x: len(str(x).split()))
+
+    # unique_word_count
+    df_train['unique_word_count'] = df_train['text'].apply(lambda x: len(set(str(x).split())))
+    df_test['unique_word_count'] = df_test['text'].apply(lambda x: len(set(str(x).split())))
+
+    # stop_word_count
+    df_train['stop_word_count'] = df_train['text'].apply(lambda x: len([w for w in str(x).lower().split() if w in STOPWORDS]))
+    df_test['stop_word_count'] = df_test['text'].apply(lambda x: len([w for w in str(x).lower().split() if w in STOPWORDS]))
+
+    # url_count
+    df_train['url_count'] = df_train['text'].apply(lambda x: len([w for w in str(x).lower().split() if 'http' in w or 'https' in w]))
+    df_test['url_count'] = df_test['text'].apply(lambda x: len([w for w in str(x).lower().split() if 'http' in w or 'https' in w]))
+
+    # mean_word_length
+    df_train['mean_word_length'] = df_train['text'].apply(lambda x: np.mean([len(w) for w in str(x).split()]))
+    df_test['mean_word_length'] = df_test['text'].apply(lambda x: np.mean([len(w) for w in str(x).split()]))
+
+    # char_count
+    df_train['char_count'] = df_train['text'].apply(lambda x: len(str(x)))
+    df_test['char_count'] = df_test['text'].apply(lambda x: len(str(x)))
+
+    # punctuation_count
+    df_train['punctuation_count'] = df_train['text'].apply(lambda x: len([c for c in str(x) if c in string.punctuation]))
+    df_test['punctuation_count'] = df_test['text'].apply(lambda x: len([c for c in str(x) if c in string.punctuation]))
+
+    # hashtag_count
+    df_train['hashtag_count'] = df_train['text'].apply(lambda x: len([c for c in str(x) if c == '#']))
+    df_test['hashtag_count'] = df_test['text'].apply(lambda x: len([c for c in str(x) if c == '#']))
+
+    # mention_count
+    df_train['mention_count'] = df_train['text'].apply(lambda x: len([c for c in str(x) if c == '@']))
+    df_test['mention_count'] = df_test['text'].apply(lambda x: len([c for c in str(x) if c == '@']))
+
+def plot_distributions(df_train, df_test):
+    METAFEATURES = ['word_count', 'unique_word_count', 'url_count', 'mean_word_length',
+                'char_count', 'punctuation_count', 'hashtag_count', 'mention_count']
+    DISASTER_TWEETS = df_train['target'] == 1
+
+    fig, axes = plt.subplots(ncols=2, nrows=len(METAFEATURES), figsize=(20, 50), dpi=100)
+
+    for i, feature in enumerate(METAFEATURES):
+        sns.distplot(df_train.loc[~DISASTER_TWEETS][feature], label='Not Disaster', ax=axes[i][0], color='red')
+        sns.distplot(df_train.loc[DISASTER_TWEETS][feature], label='Disaster', ax=axes[i][0], color='blue')
+
+        sns.distplot(df_train[feature], label='Training', ax=axes[i][1], color='red')
+        sns.distplot(df_test[feature], label='Test', ax=axes[i][1], color='blue')
+        
+        for j in range(2):
+            axes[i][j].set_xlabel('')
+            axes[i][j].tick_params(axis='x', labelsize=12)
+            axes[i][j].tick_params(axis='y', labelsize=12)
+            axes[i][j].legend()
+        
+        axes[i][0].set_title(f'{feature} Target Distribution in Training Set', fontsize=13)
+        axes[i][1].set_title(f'{feature} Training & Test Set Distribution', fontsize=13)
+
+        extent_ax0 = axes[i][0].get_window_extent().transformed(fig.dpi_scale_trans.inverted())
+        extent_ax1 = axes[i][1].get_window_extent().transformed(fig.dpi_scale_trans.inverted())
+        fig.savefig(f'{feature} Target Distribution in Training Set.png', bbox_inches=extent_ax0.expanded(1.1, 1.2))
+        fig.savefig(f'{feature} TrainingTest Set Distribution.png', bbox_inches=extent_ax1.expanded(1.1, 1.2))
+
+    #plt.show()
 
 def get_vectorizer(df_train, df_test):
     
@@ -34,7 +107,6 @@ def get_vectorizer(df_train, df_test):
     vectorizer.adapt(text_ds)
 
     return vectorizer
-
 
 def get_embedding(vectorizer):
     voc = vectorizer.get_vocabulary()
@@ -90,10 +162,11 @@ def get_model(embedding_layer):
     model.summary()
     return model
 
-
-
-if __name__ == "__main__":
+def train():
     df_train, df_test = load_dataset()
+    
+    prepare_data_for_diagrams(df_train, df_test)
+    plot_distributions(df_train, df_test)
 
     df_train['text'] = df_train.apply(lambda x: tweet_tokenizer.tokenize(x.text), axis = 1)
     df_test['text'] = df_test.apply(lambda x: tweet_tokenizer.tokenize(x.text), axis = 1)
@@ -111,5 +184,60 @@ if __name__ == "__main__":
     y_val = df_val['target'].to_numpy()
     
     model.compile("adam", "binary_crossentropy", metrics=["accuracy"])
-    model.fit(x_train, y_train, batch_size=32, epochs=10, validation_data=(x_val, y_val))
+    
+    checkpoint = ModelCheckpoint(filepath="model.h5", 
+                                monitor="val_loss", 
+                                mode="min", 
+                                verbose=1, 
+                                save_best_only=True, 
+                                save_weights_only=False)
+
+    history = model.fit(x_train, y_train, batch_size=32, epochs=nb_epochs, validation_data=(x_val, y_val), callbacks=[checkpoint])
+
+    save_history(history)
+
+def save_history(history):
+    np.save('history.npy', history.history)
+
+def load_history():
+    history = np.load('history.npy', allow_pickle='TRUE').item()
+    return history
+
+def plot_history():
+    history = load_history()
+    print(history)
+
+    # training ergebnisse
+    loss_training = history['loss']
+    acc_training = history['accuracy']
+    loss_val = history['val_loss']
+    acc_val = history['val_accuracy']
+
+    # plotte ergebnisse
+    epochs = range(nb_epochs)
+    plt.plot(epochs, loss_training, label="training loss")
+    plt.plot(epochs, loss_val, label="validation loss")
+    plt.xticks(epochs)
+    plt.xlabel("epochs")
+    plt.ylabel("loss")
+    plt.legend()
+    plt.show()
+
+    plt.plot(epochs, acc_training, label="training accuracy")
+    plt.plot(epochs, acc_val, label="validation accuracy")
+    plt.xticks(epochs)
+    plt.xlabel("epochs")
+    plt.ylabel("accuracy")
+    plt.legend()
+    plt.show()
+
+def main():
+    if os.path.exists('model.h5'):
+        plot_history()
+    else:
+        train()
+
+if __name__ == "__main__":
+    main()
+
 
