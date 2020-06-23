@@ -41,11 +41,11 @@ def get_embedding(vectorizer):
     word_index = dict(zip(voc, range(2, len(voc))))
 
     # Load pretrained embeddings
-    glove_file = "glove.twitter.27B.50d.txt"
+    glove_file = "../input/glove.twitter.27B.50d.txt"
 
     # Parse embeddings
     embeddings_index = {}
-    with open(glove_file) as f:
+    with open(glove_file, encoding="utf8") as f:
         for line in f:
             word, coefs = line.split(maxsplit=1)
             coefs = np.fromstring(coefs, "f", sep=" ")
