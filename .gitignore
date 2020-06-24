@@ -26,6 +26,9 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
+glove.twitter.27B.50d.txt
+.vscode
+.directory
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
