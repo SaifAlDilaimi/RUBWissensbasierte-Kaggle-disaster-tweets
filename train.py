@@ -10,15 +10,16 @@ import tensorflow as tf
 
 import matplotlib.pyplot as plt
 import seaborn as sns
+from sklearn.manifold import TSNE
 
 from wordcloud import STOPWORDS
 from sklearn.model_selection import train_test_split
 from tensorflow.keras.layers.experimental.preprocessing import TextVectorization
 from tensorflow import keras
-from tensorflow.keras.layers import Input, Dense, LSTM, Bidirectional, Embedding, Dropout
+from tensorflow.keras.layers import Input, Dense, LSTM, Bidirectional, Embedding, Dropout, BatchNormalization
 from tensorflow.keras.callbacks import ModelCheckpoint
 
-nb_epochs = 30
+nb_epochs = 50
 
 def load_dataset():
     df_train = pd.read_csv('train.csv', dtype={'id': np.int16, 'target': np.int8})
@@ -69,6 +70,10 @@ def prepare_data_for_diagrams(df_train, df_test):
     df_test['mention_count'] = df_test['text'].apply(lambda x: len([c for c in str(x) if c == '@']))
 
 def plot_distributions(df_train, df_test):
+    target_dist_plot = sns.countplot(x = "target", data=df_train)
+    fig = target_dist_plot.get_figure()
+    fig.savefig("plots/target_dist.png")
+
     METAFEATURES = ['word_count', 'unique_word_count', 'url_count', 'mean_word_length',
                 'char_count', 'punctuation_count', 'hashtag_count', 'mention_count']
     DISASTER_TWEETS = df_train['target'] == 1
@@ -113,7 +118,7 @@ def get_embedding(vectorizer):
     word_index = dict(zip(voc, range(2, len(voc))))
 
     # Load pretrained embeddings
-    glove_file = "../input/glove.twitter.27B.50d.txt"
+    glove_file = "glove.twitter.27B.50d.txt"
 
     # Parse embeddings
     embeddings_index = {}
@@ -142,6 +147,8 @@ def get_embedding(vectorizer):
             misses += 1
     print("Converted %d words (%d misses)" % (hits, misses))
 
+    tsne_plot(word_index, embeddings_index)
+
     return Embedding(
                 num_tokens,
                 embedding_dim,
@@ -154,8 +161,9 @@ def get_model(embedding_layer):
     # Embed input in a 50d vector
     x = embedding_layer(inputs)
     # Add 2 bidirectional LSTMs
-    x = Bidirectional(LSTM(64))(x)
-    x = Dropout(rate = 0.5)(x)
+    x = Bidirectional(LSTM(8))(x)
+    #x = Dropout(rate = 0.2)(x)
+    #x = BatchNormalization()(x)
     # Add a classifier
     outputs = Dense(1, activation="sigmoid")(x)
     model = keras.Model(inputs, outputs)
@@ -192,7 +200,13 @@ def train():
                                 save_best_only=True, 
                                 save_weights_only=False)
 
-    history = model.fit(x_train, y_train, batch_size=32, epochs=nb_epochs, validation_data=(x_val, y_val), callbacks=[checkpoint])
+    target_count = df_train['target'].value_counts()
+    class_weight = {0: 1.,
+                    1: target_count[0] / target_count[1]}
+
+    tensorboard_callback = tf.keras.callbacks.TensorBoard()
+
+    history = model.fit(x_train, y_train, batch_size=32, epochs=nb_epochs, validation_data=(x_val, y_val), callbacks=[checkpoint, tensorboard_callback], class_weight=class_weight)
 
     save_history(history)
 
@@ -221,7 +235,8 @@ def plot_history():
     plt.xlabel("epochs")
     plt.ylabel("loss")
     plt.legend()
-    plt.show()
+    plt.savefig('loss.png')
+    plt.clf()
 
     plt.plot(epochs, acc_training, label="training accuracy")
     plt.plot(epochs, acc_val, label="validation accuracy")
@@ -229,7 +244,42 @@ def plot_history():
     plt.xlabel("epochs")
     plt.ylabel("accuracy")
     plt.legend()
-    plt.show()
+    plt.savefig('acc.png')
+
+def tsne_plot(word_index, embeddings_index):
+    "Creates and TSNE model and plots it"
+    labels = []
+    tokens = []
+
+    for word in list(word_index.keys())[:500]:
+        embedding_vector = embeddings_index.get(word.decode("utf-8"))
+        if embedding_vector is not None and len(embedding_vector) == 50:
+            tokens.append(embedding_vector)
+            labels.append(word.decode("utf-8"))
+
+    tokens_array = np.empty((len(tokens), 50))
+    for i in range(len(tokens)):
+        tokens_array[i] = tokens[i]
+
+    tsne_model = TSNE(perplexity=40, n_components=2, init='pca', n_iter=2500, random_state=23)
+    new_values = tsne_model.fit_transform(tokens_array)
+
+    x = []
+    y = []
+    for value in new_values:
+        x.append(value[0])
+        y.append(value[1])
+
+    plt.figure(figsize=(16, 16))
+    for i in range(len(x)):
+        plt.scatter(x[i],y[i])
+        plt.annotate(labels[i],
+                     xy=(x[i], y[i]),
+                     xytext=(5, 2),
+                     textcoords='offset points',
+                     ha='right',
+                     va='bottom')
+    plt.savefig('test.png')
 
 def main():
     if os.path.exists('model.h5'):
